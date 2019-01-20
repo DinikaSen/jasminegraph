@@ -17,6 +17,13 @@ limitations under the License.
 #include "../util/Utils.h"
 #include "JasmineGraphFrontEndProtocol.h"
 #include "../metadb/SQLiteDBInterface.h"
+#include <log4cxx/logger.h>
+#include "log4cxx/helpers/exception.h"
+
+using namespace log4cxx;
+using namespace log4cxx::helpers;
+
+LoggerPtr frontEndLogger(Logger::getLogger( "JasmineGraphFrontEnd"));
 
 using namespace std;
 
@@ -26,7 +33,8 @@ static bool IS_DISTRIBUTED = Utils::parseBoolean(utils.getJasmineGraphProperty("
 
 void *task1(void *dummyPt)
 {
-    cout << "Thread No: " << pthread_self() << endl;
+    //cout << "Thread No: " << pthread_self() << endl;
+    LOG4CXX_INFO(frontEndLogger, "Thread no : " << pthread_self());
     char data[300];
     bzero(data, 301);
     bool loop = false;
@@ -36,16 +44,18 @@ void *task1(void *dummyPt)
         read(connFd, data, 300);
 
         string line (data);
-        cout << line << endl;
+        //cout << line << endl;
 
         line = Utils::trim_copy(line, " \f\n\r\t\v");
 
         if(line.compare(EXIT) == 0)
         {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << EXIT);
             break;
         }
         else if (line.compare(LIST) == 0)
         {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << LIST);
             SQLiteDBInterface* sqlite = (SQLiteDBInterface*) dummyPt;
             std::vector<vector<pair<string,string>>> v = sqlite->runSelect("SELECT idgraph, name, upload_path, upload_start_time, upload_end_time, "
                                                                            "graph_status_idgraph_status, vertexcount, centralpartitioncount, edgecount FROM graph;");
@@ -62,13 +72,14 @@ void *task1(void *dummyPt)
         }
         else if (line.compare(SHTDN) == 0)
         {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << SHTDN);
             close(connFd);
             exit(0);
         }
-            // Add graph from outside
+        // Add graph from outside
         else if (line.compare(ADGR) == 0)
         {
-            std::cout << SEND << endl;
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << ADGR);
             write(connFd, (SEND + '\n').c_str(), SEND.size()+1);
             // We get the name and the path to graph as a pair separated by |.
             char graph_data[300];
@@ -78,28 +89,29 @@ void *task1(void *dummyPt)
 
             read(connFd, graph_data, 300);
             string gData (graph_data);
+            LOG4CXX_INFO(frontEndLogger, "Data received : " << gData);
             gData = Utils::trim_copy(gData, " \f\n\r\t\v");
-            std::cout << "data received : " << gData << endl;
 
             std::vector<std::string> strArr = Utils::split(gData, '|');
 
             if(strArr.size() != 2){
                 string message = ERROR + ":Message format not recognized\n";
-                std::cout << message;
                 write(connFd, message.c_str(), message.size());
+                LOG4CXX_ERROR(frontEndLogger, "Message format not recognized");
             }
 
             name = strArr[0];
             path = strArr[1];
 
             if(JasmineGraphFrontEnd::graphExists(path, dummyPt)){
-                string message = ERROR + ":Graph exists\n";
+                string message = ERROR + ":Graph already exists\n";
                 write(connFd, message.c_str(), message.size());
-                std::cout << message;
+                LOG4CXX_ERROR(frontEndLogger, "Graph already exists");
             }
 
             if(JasmineGraphFrontEnd::fileExists(path)){
                 std::cout << "Path exists" << endl;
+                // TODO : Add this as a debug log
                 if(IS_DISTRIBUTED){
                     // TODO :: Upload distributed graph
                 }
@@ -109,13 +121,13 @@ void *task1(void *dummyPt)
             }else{
                 string message = ERROR + ":Graph data file does not exist on the specified path\n";
                 write(connFd, message.c_str(), message.size());
-                std::cout << message;
+                LOG4CXX_ERROR(frontEndLogger, "Graph data file does not exist on the specified path");
             }
         }
         // Remove graph from JasmineGraph
         else if (line.compare(RMGR) == 0)
         {
-            std::cout << SEND << endl;
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << RMGR);
             write(connFd, (SEND+'\n').c_str(), SEND.size()+1);
             // Get the graph id as a user input.
             char graphID[20];
@@ -128,7 +140,7 @@ void *task1(void *dummyPt)
             if(!JasmineGraphFrontEnd::graphExistsByID(graph_id, dummyPt)){
                 string message = ERROR + ":The specified graph id does not exist\n";
                 write(connFd, message.c_str(), message.size());
-                std::cout << message;
+                LOG4CXX_ERROR(frontEndLogger, "The specified graph id does not exist");
             }
             else{
                 // TODO :: Remove graph
@@ -138,10 +150,11 @@ void *task1(void *dummyPt)
         {
             string message = ERROR + ":Message format not recognized\n";
             write(connFd, message.c_str(), message.size());
-            std::cout << message;
+            LOG4CXX_ERROR(frontEndLogger, "Message format not recognized");
         }
     }
-    cout << "\nClosing thread " << pthread_self() << " and connection" << endl;
+    //cout << "\nClosing thread " << pthread_self() << " and connection" << endl;
+    LOG4CXX_INFO(frontEndLogger, "Closing thread" << pthread_self() << " and connection");
     close(connFd);
 }
 
@@ -167,6 +180,7 @@ int JasmineGraphFrontEnd::run() {
     if(listenFd < 0)
     {
         cerr << "Cannot open socket" << endl;
+        LOG4CXX_ERROR(frontEndLogger, "Cannot open socket");
         return 0;
     }
 
@@ -188,6 +202,7 @@ int JasmineGraphFrontEnd::run() {
     if(bind(listenFd, (struct sockaddr *) &svrAdd, sizeof(svrAdd)) < 0)
     {
         cerr << "Cannot bind" << endl;
+        LOG4CXX_ERROR(frontEndLogger, "Cannot bind");
         return 0;
     }
 
@@ -199,19 +214,21 @@ int JasmineGraphFrontEnd::run() {
 
     while (noThread < 3)
     {
-        cout << "Listening" << endl;
-
+        //cout << "Listening" << endl;
+        LOG4CXX_INFO(frontEndLogger, "Listening..." );
         //this is where client connects. svr will hang in this mode until client conn
         connFd = accept(listenFd, (struct sockaddr *)&clntAdd, &len);
 
         if (connFd < 0)
         {
             cerr << "Cannot accept connection" << endl;
+            LOG4CXX_ERROR(frontEndLogger, "Cannot accept connection");
             return 0;
         }
         else
         {
-            cout << "Connection successful" << endl;
+            //cout << "Connection successful" << endl;
+            LOG4CXX_INFO(frontEndLogger, "Connection successful" );
         }
 
         struct frontendservicesessionargs frontendservicesessionargs1;
@@ -245,7 +262,7 @@ int JasmineGraphFrontEnd::run() {
      SQLiteDBInterface *sqlite = (SQLiteDBInterface *) dummyPt;
      std::vector<vector<pair<string, string>>> v = sqlite->runSelect(stmt);
      int count = std::stoi(v[0][0].second);
-     std::cout << "No of columns  : " << count << endl;
+     //std::cout << "No of columns  : " << count << endl;
      if (count == 0) {
          result = false;
      }
@@ -264,7 +281,7 @@ bool JasmineGraphFrontEnd::graphExistsByID(string id, void *dummyPt) {
     SQLiteDBInterface *sqlite = (SQLiteDBInterface *) dummyPt;
     std::vector<vector<pair<string, string>>> v = sqlite->runSelect(stmt);
     int count = std::stoi(v[0][0].second);
-    std::cout << "No of columns  : " << count << endl;
+    //std::cout << "No of columns  : " << count << endl;
     if (count == 0) {
         result = false;
     }

@@ -18,6 +18,13 @@ limitations under the License.
 #include "JasmineGraphInstance.h"
 #include "../frontend/JasmineGraphFrontEnd.h"
 #include "../util/Utils.h"
+#include <log4cxx/logger.h>
+#include "log4cxx/helpers/exception.h"
+
+using namespace log4cxx;
+using namespace log4cxx::helpers;
+
+LoggerPtr serverLogger(Logger::getLogger( "JasmineGraphServer"));
 
 JasmineGraphServer::JasmineGraphServer()
 {
@@ -26,14 +33,15 @@ JasmineGraphServer::JasmineGraphServer()
 
 JasmineGraphServer::~JasmineGraphServer()
 {
+    LOG4CXX_INFO(serverLogger, "Freeing up server resources...");
     puts ("Freeing up server resources.");
     sqlite.finalize();
 }
 
 int JasmineGraphServer::run()
 {
-    std::cout << "Running the server..." << std::endl;
-
+    //std::cout << "Running the server..." << std::endl;
+    LOG4CXX_INFO(serverLogger, "Running the server..");
     this->sqlite = *new SQLiteDBInterface();
     this->sqlite.init();
     init();

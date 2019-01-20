@@ -15,6 +15,15 @@ limitations under the License.
 #include <iostream>
 #include <unistd.h>
 #include "main.h"
+#include <log4cxx/logger.h>
+#include "log4cxx/basicconfigurator.h"
+#include "log4cxx/propertyconfigurator.h"
+#include "log4cxx/helpers/exception.h"
+
+using namespace log4cxx;
+using namespace log4cxx::helpers;
+
+LoggerPtr mainLogger(Logger::getLogger( "main"));
 
 unsigned int microseconds = 10000000;
 JasmineGraphServer* server;
@@ -22,11 +31,20 @@ JasmineGraphServer* server;
 void fnExit3 (void)
 {
     delete(server);
+    LOG4CXX_INFO(mainLogger, "Shutting down the server...");
     puts ("Shutting down the server.");
 }
 
 
-int main() {
+int main(int argc, char **argv) {
+    if (argc > 1)
+    {
+        PropertyConfigurator::configure(argv[1]);
+    }
+    else
+    {
+        BasicConfigurator::configure();
+    }
     atexit(fnExit3);
     server = new JasmineGraphServer();
     server->run();

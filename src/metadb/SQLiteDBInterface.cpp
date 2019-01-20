@@ -14,6 +14,13 @@ limitations under the License.
 #include <string>
 #include "SQLiteDBInterface.h"
 #include "../util/Utils.h"
+#include <log4cxx/logger.h>
+#include "log4cxx/helpers/exception.h"
+
+using namespace log4cxx;
+using namespace log4cxx::helpers;
+
+LoggerPtr dbInterfaceLogger(Logger::getLogger( "SQLiteDBInterface"));
 
 using namespace std;
 
@@ -23,10 +30,12 @@ int SQLiteDBInterface::init()
     int rc = sqlite3_open(utils.getJasmineGraphProperty("org.jasminegraph.db.location").c_str(), &database);
     if (rc)
     {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(database));
+        //fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(database));
+        LOG4CXX_ERROR(dbInterfaceLogger, "Can't open database : " << sqlite3_errmsg(database));
         return(-1);
     } else {
-        fprintf(stderr, "Opened database successfully\n");
+        //fprintf(stderr, "Opened database successfully\n");
+        LOG4CXX_INFO(dbInterfaceLogger, "Opened database successfully");
     }
 }
 
@@ -61,10 +70,12 @@ vector<vector<pair<string, string> >> SQLiteDBInterface::runSelect(std::string q
     rc = sqlite3_exec(database, query.c_str(), callback, &dbResults, &zErrMsg);
 
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        //fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        LOG4CXX_ERROR(dbInterfaceLogger, "SQL error : " << zErrMsg);
         sqlite3_free(zErrMsg);
     } else {
-        fprintf(stdout, "Operation done successfully\n");
+        //fprintf(stdout, "Operation done successfully\n");
+        LOG4CXX_INFO(dbInterfaceLogger, "Operation done successfully");
         return dbResults;
     }
 }
