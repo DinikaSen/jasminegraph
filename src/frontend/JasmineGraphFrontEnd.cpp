@@ -20,6 +20,13 @@ limitations under the License.
 #include "JasmineGraphFrontEndProtocol.h"
 #include "../metadb/SQLiteDBInterface.h"
 #include "../partitioner/local/MetisPartitioner.h"
+#include <log4cxx/logger.h>
+#include "log4cxx/helpers/exception.h"
+
+using namespace log4cxx;
+using namespace log4cxx::helpers;
+
+LoggerPtr frontEndLogger(Logger::getLogger( "JasmineGraphFrontEnd"));
 
 using namespace std;
 
@@ -28,7 +35,8 @@ static int connFd;
 
 void *frontendservicesesion(void *dummyPt) {
     frontendservicesessionargs *sessionargs = (frontendservicesessionargs *) dummyPt;
-    cout << "Thread No: " << pthread_self() << endl;
+    //cout << "Thread No: " << pthread_self() << endl;
+    LOG4CXX_INFO(frontEndLogger, "Thread no : " << pthread_self());
     char data[300];
     bzero(data, 301);
     bool loop = false;
@@ -43,8 +51,10 @@ void *frontendservicesesion(void *dummyPt) {
         line = utils.trim_copy(line, " \f\n\r\t\v");
 
         if (line.compare(EXIT) == 0) {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << EXIT);
             break;
         } else if (line.compare(LIST) == 0) {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << LIST);
             SQLiteDBInterface *sqlite = &sessionargs->sqlite;
             std::stringstream ss;
             std::vector<vector<pair<string, string>>> v = sqlite->runSelect(
@@ -60,11 +70,12 @@ void *frontendservicesesion(void *dummyPt) {
             write(sessionargs->connFd, result.c_str(), result.length());
 
         } else if (line.compare(SHTDN) == 0) {
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << SHTDN);
             close(sessionargs->connFd);
             exit(0);
         } else if (line.compare(ADRDF) == 0) {
             // add RDF graph
-            std::cout << SEND << endl;
+            LOG4CXX_INFO(frontEndLogger, "Command received : " << ADGR);
             write(sessionargs->connFd, SEND.c_str(), FRONTEND_COMMAND_LENGTH);
             write(sessionargs->connFd, "\r\n", 2);
 
@@ -78,12 +89,12 @@ void *frontendservicesesion(void *dummyPt) {
             string gData(graph_data);
             Utils utils;
             gData = utils.trim_copy(gData, " \f\n\r\t\v");
-            std::cout << "data received : " << gData << endl;
+            LOG4CXX_INFO(frontEndLogger, "Data received : " << gData);
 
             std::vector<std::string> strArr = Utils::split(gData, '|');
 
             if (strArr.size() != 2) {
-                std::cout << ERROR << ":Message format not recognized" << endl;
+                LOG4CXX_ERROR(frontEndLogger, "Message format not recognized");
                 break;
             }
 
@@ -91,7 +102,7 @@ void *frontendservicesesion(void *dummyPt) {
             path = strArr[1];
 
             if (JasmineGraphFrontEnd::graphExists(path, dummyPt)) {
-                std::cout << ERROR << ":Graph exists" << endl;
+                LOG4CXX_ERROR(frontEndLogger, "Graph already exists")
                 break;
             }
 
@@ -99,7 +110,7 @@ void *frontendservicesesion(void *dummyPt) {
                 std::cout << "Path exists" << endl;
                 //call rdf partitioner
             } else {
-                std::cout << ERROR << ":Graph data file does not exist on the specified path" << endl;
+                LOG4CXX_ERROR(frontEndLogger, "Graph data file does not exist on the specified path");
                 break;
             }
 

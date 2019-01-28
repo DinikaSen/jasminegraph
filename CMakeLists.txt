@@ -15,3 +15,4 @@ add_executable(JasmineGraph main.cpp src/server/JasmineGraphServer.cpp src/serve
 #target_link_libraries(JasmineGraph /usr/local/lib/libmetis.so)
 
 target_link_libraries(JasmineGraph /usr/local/lib/libmetis.a)
+target_link_libraries(JasmineGraph /usr/lib/liblog4cxx.a -lapr-1 -laprutil-1)
