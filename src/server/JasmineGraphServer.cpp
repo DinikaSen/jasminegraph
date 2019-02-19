@@ -26,7 +26,18 @@ struct workerPorts{
     std::string host;
 };
 
-static std::vector<workerPorts> workerDataList;
+struct workers{
+    std::string hostname;
+    int port;
+    int dataPort;
+};
+
+struct threadDataStruct {
+    workers worker;
+    std::string filePath;
+};
+
+static std::vector<workers> hostWorkerMap;
 
 void *runfrontend(void *dummyPt) {
     JasmineGraphServer *refToServer = (JasmineGraphServer *) dummyPt;
@@ -117,6 +128,7 @@ void JasmineGraphServer::start_workers() {
         while (portCount < numberOfWorkersPerHost) {
             portVector.push_back(workerPort);
             dataPortVector.push_back(workerDataPort);
+            hostWorkerMap.push_back({*it,workerPort,workerDataPort});
             workerPort = workerPort + 2;
             workerDataPort = workerDataPort + 2;
             portCount ++;
@@ -125,6 +137,7 @@ void JasmineGraphServer::start_workers() {
         if (hostListModeNWorkers > 0) {
             portVector.push_back(workerPort);
             dataPortVector.push_back(workerDataPort);
+            hostWorkerMap.push_back({*it,workerPort,workerDataPort});
             workerPort = workerPort + 2;
             workerDataPort = workerDataPort + 2;
             hostListModeNWorkers--;
@@ -150,8 +163,8 @@ void JasmineGraphServer::start_workers() {
         workerPortsData.workerDataPortsVector = workerDataPortsMap[host];
         workerPortsData.host = host;
         std::cout<<workerPortsData.host<< std::endl;
-        workerDataList.push_back(workerPortsData);
         pthread_create(&threadArray[count],NULL,&JasmineGraphServer::startRemoteWorkers,(void *)&workerPortsData);
+        count++;
     }
 }
 
@@ -178,13 +191,38 @@ void* JasmineGraphServer::startRemoteWorkers(void *threadData) {
     }
 }
 
-void JasmineGraphServer::uploadGraphLocally(std::string graphID) {
-    Utils utils;
-    std::string nWorkers = utils.getJasmineGraphProperty("org.jasminegraph.server.nworkers");
-    std::vector<string> hostsList = utils.getHostList();
+
+bool JasmineGraphServer::batchUploadFile(std::string host, int port, int graphID, std::string filePath, int dataPort) {
+    bool result = true;
+
+    return result;
+}
+
+void JasmineGraphServer::uploadGraphLocally(int graphID) {
+    std::cout << "Uploading the graph locally.." << std::endl;
+    //Utils utils;
+    //std::string nWorkers = utils.getJasmineGraphProperty("org.jasminegraph.server.nworkers");
+    //std::vector<string> hostsList = utils.getHostList();
     std::vector<string> partitionFileList = MetisPartitioner::getPartitionFiles();
-    std::cout << "List size is: " << partitionFileList[0] << std::endl;
-    std::cout << "List size is: " << partitionFileList[1] << std::endl;
-    std::cout << "List size is: " << partitionFileList[2] << std::endl;
-    std::cout << "List size is: " << partitionFileList[3] << std::endl;
+    int count = 0;
+    pthread_t threadArray[hostWorkerMap.size()];
+    std::vector<workers, std::allocator<workers>>::iterator mapIterator = hostWorkerMap.begin();
+    for (mapIterator = hostWorkerMap.begin(); mapIterator < hostWorkerMap.end(); mapIterator++) {
+        workers worker = *mapIterator;
+        threadDataStruct threadData = {worker, partitionFileList[count]};
+        pthread_create(&threadArray[count],NULL,&JasmineGraphServer::startBatchUploadThread,(void *)&threadData);
+        //batchUploadFile(worker.hostname, worker.port, graphID, partitionFileList[count], worker.dataPort);
+        count++;
+    }
+    //TODO::Update the database as required
+}
+
+void *JasmineGraphServer::startBatchUploadThread(void *threadData) {
+    struct threadDataStruct *threadStruct;
+    threadStruct = (struct threadDataStruct *) threadData;
+    workers workerStruct = threadStruct->worker;
+//    string workerHostname = workerStruct.hostname;
+//    int workerPort= workerStruct.port;
+//    int workerDataport = workerStruct.dataPort;
+//    string filePath = threadStruct->filePath;
 }

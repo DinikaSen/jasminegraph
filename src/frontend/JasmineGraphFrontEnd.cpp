@@ -15,6 +15,7 @@ limitations under the License.
 #include <ctime>
 #include <chrono>
 #include "JasmineGraphFrontEnd.h"
+#include "../server/JasmineGraphServer.h"
 #include "../util/Conts.h"
 #include "../util/Utils.h"
 #include "JasmineGraphFrontEndProtocol.h"
@@ -155,6 +156,8 @@ void *frontendservicesesion(void *dummyPt) {
 
                 partitioner->constructMetisFormat();
                 partitioner->partitioneWithGPMetis();
+                JasmineGraphServer *jg = new JasmineGraphServer();
+                jg->uploadGraphLocally(newGraphID);
             } else {
                 std::cout << ERROR << ":Graph data file does not exist on the specified path" << endl;
                 break;
