@@ -45,6 +45,8 @@ public:
 
     bool isRunning();
 
+    void uploadGraphLocally(std::string graphID);
+
     JasmineGraphFrontEnd *frontend;
     SQLiteDBInterface sqlite;
     JasmineGraphBackend *backend;

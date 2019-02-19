@@ -18,12 +18,15 @@ limitations under the License.
 #include "JasmineGraphInstance.h"
 #include "../frontend/JasmineGraphFrontEnd.h"
 #include "../util/Utils.h"
+#include "../partitioner/local/MetisPartitioner.h"
 
 struct workerPorts{
     std::vector<int> workerPortsVector;
     std::vector<int> workerDataPortsVector;
     std::string host;
 };
+
+static std::vector<workerPorts> workerDataList;
 
 void *runfrontend(void *dummyPt) {
     JasmineGraphServer *refToServer = (JasmineGraphServer *) dummyPt;
@@ -147,6 +150,7 @@ void JasmineGraphServer::start_workers() {
         workerPortsData.workerDataPortsVector = workerDataPortsMap[host];
         workerPortsData.host = host;
         std::cout<<workerPortsData.host<< std::endl;
+        workerDataList.push_back(workerPortsData);
         pthread_create(&threadArray[count],NULL,&JasmineGraphServer::startRemoteWorkers,(void *)&workerPortsData);
     }
 }
@@ -165,10 +169,22 @@ void* JasmineGraphServer::startRemoteWorkers(void *threadData) {
         if (host.find("localhost") != std::string::npos) {
             remoteServerStartScript = "sh "+ serverPath + " 2"+" "+ std::to_string(workerPortsVector.at(i)) + " " + std::to_string(workerDataPortsVector.at(i));
         } else {
-            remoteServerStartScript = "ssh -p 22 " + host+ " sh "+ serverPath + " 2"+" "+ std::to_string(workerPortsVector.at(i)) + " " + std::to_string(workerDataPortsVector.at(i));
+//            remoteServerStartScript = "ssh -p 22 " + host+ " sh "+ serverPath + " 2"+" "+ std::to_string(workerPortsVector.at(i)) + " " + std::to_string(workerDataPortsVector.at(i));
+            remoteServerStartScript = "ssh -p 22 localhost sh " + serverPath ;
         }
-        std::cout<<workerPortsDataStruct->host<< std::endl;
-        std::cout<<remoteServerStartScript<< std::endl;
+        std::cout<< "HOST : " << workerPortsDataStruct->host<< std::endl;
+        std::cout<< "COMMAND : " << remoteServerStartScript<< std::endl;
         system(remoteServerStartScript.c_str());
     }
+}
+
+void JasmineGraphServer::uploadGraphLocally(std::string graphID) {
+    Utils utils;
+    std::string nWorkers = utils.getJasmineGraphProperty("org.jasminegraph.server.nworkers");
+    std::vector<string> hostsList = utils.getHostList();
+    std::vector<string> partitionFileList = MetisPartitioner::getPartitionFiles();
+    std::cout << "List size is: " << partitionFileList[0] << std::endl;
+    std::cout << "List size is: " << partitionFileList[1] << std::endl;
+    std::cout << "List size is: " << partitionFileList[2] << std::endl;
+    std::cout << "List size is: " << partitionFileList[3] << std::endl;
 }

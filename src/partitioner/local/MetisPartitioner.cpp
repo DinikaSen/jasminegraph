@@ -13,6 +13,8 @@ limitations under the License.
 
 #include "MetisPartitioner.h"
 
+thread_local std::vector<string> partitionFileList;
+
 MetisPartitioner::MetisPartitioner(SQLiteDBInterface *sqlite) {
     this->sqlite = *sqlite;
 }
@@ -55,7 +57,7 @@ void MetisPartitioner::loadDataSet(string inputFilePath, string outputFilePath, 
         if (!zeroflag) {
             if (firstVertex == 0 || secondVertex == 0) {
                 zeroflag = true;
-                std::cout << "Graph have zero vertex." << std::endl;
+                std::cout << "Graph has zero vertex." << std::endl;
             }
         }
 
@@ -312,6 +314,11 @@ void MetisPartitioner::createPartitionFiles(idx_t *part) {
 
         //Compress part files
         this->utils.compressFile(outputFilePart);
+        partitionFileList.push_back(outputFilePart+".zip");
         this->utils.compressFile(outputFilePartMaster);
     }
+}
+
+std::vector<string> MetisPartitioner::getPartitionFiles() {
+    return partitionFileList;
 }
