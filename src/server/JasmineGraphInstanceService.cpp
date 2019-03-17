@@ -45,7 +45,6 @@ void *instanceservicesession(void *dummyPt) {
             line = (data);
             //line = utils.trim_copy(line, " \f\n\r\t\v");
             string server_hostname = line;
-            std::cout << "ServerName : " << server_hostname << std::endl;
 
         } else if (line.compare(JasmineGraphInstanceProtocol::CLOSE)==0) {
             write(connFd, JasmineGraphInstanceProtocol::CLOSE_ACK.c_str(),
@@ -96,7 +95,83 @@ void *instanceservicesession(void *dummyPt) {
                 bzero(data, 301);
                 read(connFd, data, 300);
                 string response = (data);
-                std::cout << "is the file received?? :: " <<  utils.getFileSize(fullFilePath) << std::endl;
+                response = utils.trim_copy(response, " \f\n\r\t\v");
+
+                if (response.compare(JasmineGraphInstanceProtocol::FILE_RECV_CHK) == 0) {
+                    write(connFd, JasmineGraphInstanceProtocol::FILE_RECV_WAIT.c_str(),
+                          JasmineGraphInstanceProtocol::FILE_RECV_WAIT.size());
+                }
+            }
+
+            bzero(data, 301);
+            read(connFd, data, 300);
+            string response = (data);
+            response = utils.trim_copy(response, " \f\n\r\t\v");
+
+            if (line.compare(JasmineGraphInstanceProtocol::FILE_RECV_CHK) == 0) {
+                write(connFd, JasmineGraphInstanceProtocol::FILE_ACK.c_str(),
+                      JasmineGraphInstanceProtocol::FILE_ACK.size());
+            }
+
+            std::cout << "File received and saved to " << fullFilePath << std::endl;
+            loop = true;
+
+            // TODO :: Check with Acacia
+
+            //utils.unzipFile(fullFilePath);
+
+            //TODO:: Check with Acacia
+
+            while (!utils.fileExists(fullFilePath)) {
+                std::cout << "making sure that it does not reach here " << fullFilePath << std::endl;
+                bzero(data, 301);
+                read(connFd, data, 300);
+                string response = (data);
+                response = utils.trim_copy(response, " \f\n\r\t\v");
+                if (line.compare(JasmineGraphInstanceProtocol::BATCH_UPLOAD_CHK) == 0) {
+                    write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.c_str(),
+                          JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.size());
+                }
+            }
+            std::cout << "writing.........  " << JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK << std::endl;
+            write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.c_str(),
+                  JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.size());
+
+        }
+        else if (line.compare(JasmineGraphInstanceProtocol::BATCH_UPLOAD_CENTRAL)==0) {
+            write(connFd, JasmineGraphInstanceProtocol::OK.c_str(), JasmineGraphInstanceProtocol::OK.size());
+            bzero(data, 301);
+            read(connFd, data, 300);
+            string graphID = (data);
+            graphID = utils.trim_copy(graphID, " \f\n\r\t\v");
+
+            write(connFd, JasmineGraphInstanceProtocol::SEND_FILE_NAME.c_str(),
+                  JasmineGraphInstanceProtocol::SEND_FILE_NAME.size());
+
+            bzero(data, 301);
+            read(connFd, data, 300);
+            string fileName = (data);
+            //fileName = utils.trim_copy(fileName, " \f\n\r\t\v");
+
+            write(connFd, JasmineGraphInstanceProtocol::SEND_FILE_LEN.c_str(),
+                  JasmineGraphInstanceProtocol::SEND_FILE_LEN.size());
+
+            bzero(data, 301);
+            read(connFd, data, 300);
+            string size = (data);
+            int fileSize = atoi(size.c_str());
+
+            write(connFd, JasmineGraphInstanceProtocol::SEND_FILE_CONT.c_str(),
+                  JasmineGraphInstanceProtocol::SEND_FILE_CONT.size());
+
+            // TODO :: Check with Acacia code
+
+            string fullFilePath =
+                    utils.getJasmineGraphProperty("org.jasminegraph.server.instance.datafolder") + "/" + fileName;
+            while (utils.fileExists(fullFilePath) && utils.getFileSize(fullFilePath) < fileSize) {
+                bzero(data, 301);
+                read(connFd, data, 300);
+                string response = (data);
                 //response = utils.trim_copy(response, " \f\n\r\t\v");
 
                 if (response.compare(JasmineGraphInstanceProtocol::FILE_RECV_CHK) == 0) {
@@ -115,7 +190,7 @@ void *instanceservicesession(void *dummyPt) {
                       JasmineGraphInstanceProtocol::FILE_ACK.size());
             }
 
-            std::cout << "File Received" << std::endl;
+            std::cout << "File received and saved to " << fullFilePath << std::endl;
             loop = true;
 
             // TODO :: Check with Acacia
@@ -124,19 +199,19 @@ void *instanceservicesession(void *dummyPt) {
 
             //TODO:: Check with Acacia
 
-//            while (!utils.fileExists(fullFilePath)) {
-//                bzero(data, 301);
-//                read(connFd, data, 300);
-//                string response = (data);
-//                response = utils.trim_copy(response, " \f\n\r\t\v");
-//                if (line.compare(JasmineGraphInstanceProtocol::BATCH_UPLOAD_CHK) == 0) {
-//                    write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.c_str(),
-//                          JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.size());
-//                }
-//            }
-//
-//            write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.c_str(),
-//                  JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.size());
+            while (!utils.fileExists(fullFilePath)) {
+                bzero(data, 301);
+                read(connFd, data, 300);
+                string response = (data);
+                response = utils.trim_copy(response, " \f\n\r\t\v");
+                if (line.compare(JasmineGraphInstanceProtocol::BATCH_UPLOAD_CHK) == 0) {
+                    write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.c_str(),
+                          JasmineGraphInstanceProtocol::BATCH_UPLOAD_WAIT.size());
+                }
+            }
+
+            write(connFd, JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.c_str(),
+                  JasmineGraphInstanceProtocol::BATCH_UPLOAD_ACK.size());
 
         }
         // TODO :: Implement the rest of the protocol
