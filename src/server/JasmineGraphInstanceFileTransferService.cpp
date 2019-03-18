@@ -13,8 +13,10 @@ limitations under the License.
 
 #include "JasmineGraphInstanceFileTransferService.h"
 #include "../util/Utils.h"
+#include "../util/logger/Logger.h"
 
 using namespace std;
+Logger file_service_logger;
 
 void *filetransferservicesession(void *dummyPt) {
     filetransferservicesessionargs *sessionargs = (filetransferservicesessionargs *) dummyPt;
@@ -92,13 +94,13 @@ int JasmineGraphInstanceFileTransferService::run(int dataPort) {
 
     // TODO :: What is the maximum number of connections allowed?? Considered as 5 for now
     while (connectionCounter<5) {
-        std::cout << "Worker FileTransfer Service listening on port " << dataPort << std::endl;
+        file_service_logger.log("Worker FileTransfer Service listening on port " + to_string(dataPort),"info");
         connFd = accept(listenFd, (struct sockaddr *) &clntAdd, &len);
 
         if (connFd < 0) {
-            std::cerr << "Cannot accept connection" << std::endl;
+            file_service_logger.log("Cannot accept connection to port " + to_string(dataPort),"error");
         } else {
-            std::cout << "Connection successful" << std::endl;
+            file_service_logger.log("Connection successful to port " + to_string(dataPort),"info");
             struct filetransferservicesessionargs filetransferservicesessionargs1;
             filetransferservicesessionargs1.connFd = connFd;
 
