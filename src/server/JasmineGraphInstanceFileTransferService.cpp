@@ -13,8 +13,10 @@ limitations under the License.
 
 #include "JasmineGraphInstanceFileTransferService.h"
 #include "../util/Utils.h"
+#include "../util/logger/Logger.h"
 
 using namespace std;
+Logger file_service_logger;
 
 void *filetransferservicesession(void *dummyPt) {
     filetransferservicesessionargs *sessionargs = (filetransferservicesessionargs *) dummyPt;
@@ -31,10 +33,8 @@ void *filetransferservicesession(void *dummyPt) {
 
     write(connFd, JasmineGraphInstanceProtocol::SEND_FILE.c_str(), JasmineGraphInstanceProtocol::SEND_FILE.size());
 
-    char recvBUFF[1024];
-    int bytesReceived = 0;
-    //memset(recvBUFF, '0', sizeof(recvBUFF));
 
+    int bytesReceived = 0;
     char buffer[1024];
     std::ofstream file(filePathWithName, std::ios::out|std::ios::binary);
     do
@@ -92,15 +92,15 @@ int JasmineGraphInstanceFileTransferService::run(int dataPort) {
     int connectionCounter = 0;
     pthread_t threadA[5];
 
-    // TODO :: What is the maximum number of connections allowed??
+    // TODO :: What is the maximum number of connections allowed?? Considered as 5 for now
     while (connectionCounter<5) {
-        std::cout << "Worker FileTransfer Service listening on port " << dataPort << std::endl;
+        file_service_logger.log("Worker FileTransfer Service listening on port " + to_string(dataPort),"info");
         connFd = accept(listenFd, (struct sockaddr *) &clntAdd, &len);
 
         if (connFd < 0) {
-            std::cerr << "Cannot accept connection" << std::endl;
+            file_service_logger.log("Cannot accept connection to port " + to_string(dataPort),"error");
         } else {
-            std::cout << "Connection successful" << std::endl;
+            file_service_logger.log("Connection successful to port " + to_string(dataPort),"info");
             struct filetransferservicesessionargs filetransferservicesessionargs1;
             filetransferservicesessionargs1.connFd = connFd;
 
@@ -112,6 +112,5 @@ int JasmineGraphInstanceFileTransferService::run(int dataPort) {
 
     for (int i = 0; i < connectionCounter; i++) {
         pthread_join(threadA[i], NULL);
-        std::cout << "FT Threads joined" << std::endl;
     }
 }
