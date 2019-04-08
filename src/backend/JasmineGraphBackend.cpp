@@ -75,9 +75,6 @@ int JasmineGraphBackend::run() {
     struct sockaddr_in svrAdd;
     struct sockaddr_in clntAdd;
 
-    //TODO: This seems there is only 3 back end instances can be kept running once. Need to double check this.
-    pthread_t threadA[3];
-
     //create socket
     listenFd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -107,12 +104,13 @@ int JasmineGraphBackend::run() {
     }
 
     listen(listenFd, 10);
+    pthread_t threadA[20];
 
     len = sizeof(clntAdd);
 
     int noThread = 0;
 
-    while (noThread < 10) {
+    while (noThread < 20) {
         backend_logger.log("Backend Listening", "info");
 
         //this is where client connects. svr will hang in this mode until client conn
@@ -136,7 +134,7 @@ int JasmineGraphBackend::run() {
         noThread++;
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < noThread; i++) {
         pthread_join(threadA[i], NULL);
     }
 }
