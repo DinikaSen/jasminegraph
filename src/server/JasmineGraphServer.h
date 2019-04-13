@@ -40,6 +40,8 @@ private:
 
     void addHostsToMetaDB();
 
+    void updateOperationalGraphList();
+
     std::map<std::string, std::string> getLiveHostIDList();
 
     static void copyArtifactsToWorkers(std::string workerPath, std::string artifactLocation, std::string remoteWorker);

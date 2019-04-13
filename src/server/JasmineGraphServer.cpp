@@ -56,6 +56,7 @@ int JasmineGraphServer::run() {
     this->sqlite.init();
     init();
     addHostsToMetaDB();
+    updateOperationalGraphList();
     hostIDMap = getLiveHostIDList();
     start_workers();
     return 0;
@@ -187,19 +188,24 @@ void JasmineGraphServer::uploadGraphLocally(int graphID) {
     std::vector<string> centralStoreFileList = MetisPartitioner::getCentalStoreFiles();
     int count = 0;
     int file_count = 0;
-    std::thread *workerThreads = new std::thread[hostWorkerMap.size() * 2];
-
-    std::vector<workers, std::allocator<workers>>::iterator mapIterator;
-    for (mapIterator = hostWorkerMap.begin(); mapIterator < hostWorkerMap.end(); mapIterator++) {
-        workers worker = *mapIterator;
-        workerThreads[count] = std::thread(batchUploadFile, worker.hostname, worker.port, worker.dataPort, graphID,
-                                           partitionFileList[file_count]);
-        count++;
-        sleep(1);
-        workerThreads[count] = std::thread(batchUploadCentralStore, worker.hostname, worker.port, worker.dataPort,
-                                           graphID, centralStoreFileList[file_count]);
-        count++;
-        file_count++;
+    int total_threads = partitionFileList.size() + centralStoreFileList.size();
+    std::thread *workerThreads = new std::thread[total_threads];
+    while (count < total_threads) {
+        std::vector<workers, std::allocator<workers>>::iterator mapIterator;
+        for (mapIterator = hostWorkerMap.begin(); mapIterator < hostWorkerMap.end(); mapIterator++) {
+            workers worker = *mapIterator;
+            if (count == total_threads) {
+                break;
+            }
+            workerThreads[count] = std::thread(batchUploadFile, worker.hostname, worker.port, worker.dataPort, graphID,
+                                               partitionFileList[file_count]);
+            count++;
+            sleep(1);
+            workerThreads[count] = std::thread(batchUploadCentralStore, worker.hostname, worker.port, worker.dataPort,
+                                               graphID, centralStoreFileList[file_count]);
+            count++;
+            file_count++;
+        }
     }
 
     for (int threadCount = 0; threadCount < count; threadCount++) {
@@ -848,4 +854,34 @@ int JasmineGraphServer::removePartitionThroughService(string host, int port, str
     }
     close(sockfd);
     return 0;
+}
+
+void JasmineGraphServer::updateOperationalGraphList() {
+    Utils utils;
+    string hosts = "";
+    string graphIDs = "";
+    vector<string> hostsList = utils.getHostList();
+    vector<string>::iterator it;
+    for (it = hostsList.begin(); it < hostsList.end(); it++) {
+        string host = *it;
+        hosts += ("'" + host + "', ");
+    }
+    hosts = hosts.substr(0, hosts.size() - 2);
+    string sqlStatement = ("SELECT b.partition_graph_idgraph FROM host_has_partition AS b "
+                           "JOIN host WHERE host.idhost = b.host_idhost AND host.name IN "
+                           "(" + hosts + ") GROUP BY b.partition_graph_idgraph HAVING COUNT(b.partition_idpartition)= "
+                                         "(SELECT COUNT(a.partition_idpartition) FROM host_has_partition AS a "
+                                         "WHERE a.partition_graph_idgraph = b.partition_graph_idgraph);");
+    std::vector<vector<pair<string, string>>> v = this->sqlite.runSelect(sqlStatement);
+    for (std::vector<vector<pair<string, string>>>::iterator i = v.begin(); i != v.end(); ++i) {
+        for (std::vector<pair<string, string>>::iterator j = (i->begin()); j != i->end(); ++j) {
+            graphIDs += (j->second + ", ");
+        }
+    }
+    graphIDs = graphIDs.substr(0, graphIDs.size() - 2);
+    string sqlStatement2 = "UPDATE graph SET graph_status_idgraph_status = ("
+                           "CASE WHEN idgraph IN (" + graphIDs + ") THEN '" +
+                           to_string(Conts::GRAPH_STATUS::OPERATIONAL) + "' ELSE '" +
+                           to_string(Conts::GRAPH_STATUS::NONOPERATIONAL) + "' END )";
+    this->sqlite.runUpdate(sqlStatement2);
 }
