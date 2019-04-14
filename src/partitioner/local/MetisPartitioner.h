@@ -61,6 +61,8 @@ private:
     SQLiteDBInterface sqlite;
     int graphID;
     Utils utils;
+    int totalVertexCount;
+    int totalEdgeCount;
 
     std::map<int, std::vector<int>> graphStorageMap;
     std::map<int, std::vector<int>> graphEdgeMap;

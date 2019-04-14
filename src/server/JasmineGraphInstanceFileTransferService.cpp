@@ -42,7 +42,7 @@ void *filetransferservicesession(void *dummyPt) {
         bytesReceived = recv(connFd, buffer, sizeof(buffer), 0);
         if (bytesReceived > 0) {
             file.write(buffer, bytesReceived);
-            printf("Buffer: %.*s\n", connFd, buffer);
+            //printf("Buffer: %.*s\n", connFd, buffer);
             //or: printf("Buffer: %*.*s\n", bytes_read, bytes_read, buffer);
         }
     } while (bytesReceived > 0);
