@@ -288,6 +288,7 @@ std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis()
 }
 
 void MetisPartitioner::createPartitionFiles(std::map<int, int> partMap) {
+    const clock_t begin_time = clock();
     partitioner_logger.log("Populating edge lists before writing to files", "info");
     edgeMap = GetConfig::getEdgeMap();
     articlesMap = GetConfig::getAttributesMap();
@@ -323,8 +324,10 @@ void MetisPartitioner::createPartitionFiles(std::map<int, int> partMap) {
             }
         }
     }
+    float t1 =  float( clock () - begin_time ) /  CLOCKS_PER_SEC;
     partitioner_logger.log("Populating edge lists completed", "info");
     partitioner_logger.log("Writing edge lists to files", "info");
+    const clock_t begin_time2 = clock();
     std::thread *threads = new std::thread[nParts];
     count = 0;
     for (int part = 0; part < nParts; part++) {
@@ -337,6 +340,11 @@ void MetisPartitioner::createPartitionFiles(std::map<int, int> partMap) {
         std::cout << "############JOINED###########" << std::endl;
     }
     partitioner_logger.log("writing to files completed", "info");
+    float t2 = float( clock () - begin_time2 ) /  CLOCKS_PER_SEC ;
+    string sqlStatement2 =
+            "UPDATE graph SET time_to_populate = '" + to_string(t1) + "' ,time_to_write = '" +
+            to_string(t2) + "' WHERE idgraph = '" + to_string(graphID) + "'";
+    this->sqlite.runUpdate(sqlStatement2);
 }
 
 string MetisPartitioner::reformatDataSet(string inputFilePath, int graphID) {
