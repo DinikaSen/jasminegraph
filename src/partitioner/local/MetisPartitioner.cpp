@@ -462,6 +462,10 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
     for (int vertex = 0; vertex < vertexCount; vertex++) {
         int firstVertexPart = partMap[vertex];
         if (firstVertexPart == part) {
+            std::map<int, std::vector<int>> partEdgesSet = partitionedLocalGraphStorageMap[firstVertexPart];
+            std::vector<int> edgeSet = partEdgesSet[vertex];
+            std::map<int, std::vector<int>> partMasterEdgesSet = masterGraphStorageMap[firstVertexPart];
+            std::vector<int> masterEdgeSet = partMasterEdgesSet[vertex];
             std::vector<int> vertexEdgeSet = graphEdgeMap[vertex];
             if (!vertexEdgeSet.empty()) {
                 partitionVertexCount++;
@@ -472,21 +476,21 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
 
                     if (firstVertexPart == secondVertexPart) {
                         partitionEdgeCount++;
-                        std::map<int, std::vector<int>> partEdgesSet = partitionedLocalGraphStorageMap[firstVertexPart];
-                        std::vector<int> edgeSet = partEdgesSet[vertex];
+//                        std::map<int, std::vector<int>> partEdgesSet = partitionedLocalGraphStorageMap[firstVertexPart];
+//                        std::vector<int> edgeSet = partEdgesSet[vertex];
                         edgeSet.push_back(secondVertex);
-                        partEdgesSet[vertex] = edgeSet;
-                        partitionedLocalGraphStorageMap[firstVertexPart] = partEdgesSet;
+//                        partEdgesSet[vertex] = edgeSet;
+//                        partitionedLocalGraphStorageMap[firstVertexPart] = partEdgesSet;
                     } else {
                         /*This edge's two vertices belong to two different parts.
                         *Therefore the edge is added to both partMasterEdgeSets
                         *This adds the edge to the masterGraphStorageMap with key being the part of vertex 1
                         */
-                        std::map<int, std::vector<int>> partMasterEdgesSet = masterGraphStorageMap[firstVertexPart];
-                        std::vector<int> edgeSet = partMasterEdgesSet[vertex];
-                        edgeSet.push_back(secondVertex);
-                        partMasterEdgesSet[vertex] = edgeSet;
-                        masterGraphStorageMap[firstVertexPart] = partMasterEdgesSet;
+//                        std::map<int, std::vector<int>> partMasterEdgesSet = masterGraphStorageMap[firstVertexPart];
+//                        std::vector<int> edgeSet = partMasterEdgesSet[vertex];
+                        masterEdgeSet.push_back(secondVertex);
+//                        partMasterEdgesSet[vertex] = masterEdgeSet;
+//                        masterGraphStorageMap[firstVertexPart] = partMasterEdgesSet;
 
                         /* We need to insert these central store edges to the masterGraphStorageMap where the key is the
                          * second vertex's part. But it cannot be done inside the thread as it generates a race condition
@@ -502,6 +506,10 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
 
                     }
                 }
+                partEdgesSet[vertex] = edgeSet;
+                partitionedLocalGraphStorageMap[firstVertexPart] = partEdgesSet;
+                partMasterEdgesSet[vertex] = masterEdgeSet;
+                masterGraphStorageMap[firstVertexPart] = partMasterEdgesSet;
             }
         }
     }
