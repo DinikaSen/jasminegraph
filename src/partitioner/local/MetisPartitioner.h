@@ -60,7 +60,7 @@ private:
     idx_t largestVertex = 0;
     idx_t vertexCount = 0;
     //TODO:Need to remove this hardcoded value
-    idx_t nParts = 4;
+    int nParts = 4;
     string outputFilePath;
     bool zeroflag = false;
     SQLiteDBInterface sqlite;
@@ -83,7 +83,7 @@ private:
     std::map<int, std::vector<int>> partVertexMap;
     std::map<int, std::map<int, std::vector<int>>> partitionedLocalGraphStorageMap;
     std::map<int, std::map<int, std::vector<int>>> masterGraphStorageMap;
-    std::map<int, std::map<int,std::vector<std::pair<int,int>>>> commonCentralStoreEdgeMap;
+    std::map<int, std::map<int,std::map<int, std::vector<int>>>> commonCentralStoreEdgeMap;
     std::vector<int> xadj;
     std::vector<int> adjncy;
     std::map<std::pair<int, int>, int> edgeMap;
