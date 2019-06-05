@@ -57,6 +57,7 @@ public:
 
 private:
     idx_t edgeCount = 0;
+    idx_t edgeCountForMetis = 0;
     idx_t largestVertex = 0;
     idx_t vertexCount = 0;
     //TODO:Need to remove this hardcoded value
@@ -67,8 +68,6 @@ private:
     int graphID;
     Utils utils;
     string graphType;
-    int totalVertexCount;
-    int totalEdgeCount;
     int smallestVertex = std::numeric_limits<int>::max();
     string graphTypeInt;
 

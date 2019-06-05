@@ -29,6 +29,7 @@ MetisPartitioner::MetisPartitioner(SQLiteDBInterface *sqlite) {
 
 void MetisPartitioner::loadDataSet(string inputFilePath, int graphID) {
     partitioner_logger.log("Processing dataset for partitioning", "info");
+    const clock_t begin = clock();
     this->graphID = graphID;
     // Output directory is created under the users home directory '~/.jasminegraph/tmp/'
     this->outputFilePath = utils.getHomeDir() + "/.jasminegraph/tmp/" + std::to_string(this->graphID);
@@ -82,15 +83,17 @@ void MetisPartitioner::loadDataSet(string inputFilePath, int graphID) {
         if (firstEdgeSet.empty()) {
             vertexCount++;
             edgeCount++;
+            edgeCountForMetis++;
             firstEdgeSet.push_back(secondVertex);
             vertexEdgeSet.push_back(secondVertex);
 
         } else {
             if (std::find(firstEdgeSet.begin(), firstEdgeSet.end(), secondVertex) == firstEdgeSet.end()) {
                 firstEdgeSet.push_back(secondVertex);
-                vertexEdgeSet.push_back(secondVertex);
-                edgeCount++;
+                edgeCountForMetis++;
             }
+            vertexEdgeSet.push_back(secondVertex);
+            edgeCount++;
         }
 
         graphStorageMap[firstVertex] = firstEdgeSet;
@@ -132,24 +135,25 @@ void MetisPartitioner::loadDataSet(string inputFilePath, int graphID) {
         }
     }
 
+    float time =  float( clock () - begin ) /  CLOCKS_PER_SEC;
+    partitioner_logger.log("Processing dataset completed in " + to_string(time) + " seconds", "info");
     cout << "Total vertex count : " << vertexCount << endl;
     cout << "Total edge count : " << edgeCount << endl;
     cout << "Largest vertex : " << largestVertex << endl;
     cout << "Smallest vertex : " << smallestVertex << endl;
+
 }
 
 int MetisPartitioner::constructMetisFormat(string graph_type) {
     partitioner_logger.log("Constructing metis input format", "info");
+    const clock_t begin = clock();
     graphType = graph_type;
     int adjacencyIndex = 0;
     std::ofstream outputFile;
     string outputFileName = this->outputFilePath + "/grf";
     outputFile.open(outputFileName);
 
-    outputFile << (vertexCount) << ' ' << (edgeCount) << std::endl;
-
-    this->totalEdgeCount = edgeCount;
-    this->totalVertexCount = vertexCount;
+    outputFile << (vertexCount) << ' ' << (edgeCountForMetis) << std::endl;
 
     xadj.push_back(adjacencyIndex);
     for (int vertexNum = 0; vertexNum <= largestVertex; vertexNum++) {
@@ -159,6 +163,7 @@ int MetisPartitioner::constructMetisFormat(string graph_type) {
             partitioner_logger.log("Vertex list is not sequential. Reformatting vertex list", "info");
             vertexCount = 0;
             edgeCount = 0;
+            edgeCountForMetis = 0;
             graphEdgeMap.clear();
             graphStorageMap.clear();
             smallestVertex = std::numeric_limits<int>::max();
@@ -196,14 +201,15 @@ int MetisPartitioner::constructMetisFormat(string graph_type) {
 
         outputFile << std::endl;
     }
-    partitioner_logger.log("Constructing metis format completed", "info");
+    float time =  float( clock () - begin ) /  CLOCKS_PER_SEC;
+    partitioner_logger.log("Constructing metis format completed in " + to_string(time) + " seconds", "info");
     return 1;
 }
 
 std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis() {
     partitioner_logger.log("Partitioning with gpmetis", "info");
-    edgeCount = this->totalEdgeCount;
-    vertexCount = this->totalVertexCount;
+    const clock_t begin = clock();
+
     char buffer[128];
     std::string result = "";
     FILE *headerModify;
@@ -219,7 +225,7 @@ std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis()
         pclose(input);
         if (!result.empty() && result.find("Premature") != std::string::npos) {
             vertexCount -= 1;
-            string newHeader = std::to_string(vertexCount) + ' ' + std::to_string(edgeCount);
+            string newHeader = std::to_string(vertexCount) + ' ' + std::to_string(edgeCountForMetis);
             //string command = "sed -i \"1s/.*/" + newHeader +"/\" /tmp/grf";
             string command = "sed -i \"1s/.*/" + newHeader + "/\" " + this->outputFilePath + "/grf";
             char *newHeaderChar = new char[command.length() + 1];
@@ -228,7 +234,7 @@ std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis()
             partitioneWithGPMetis();
         } else if (!result.empty() && result.find("out of bounds") != std::string::npos) {
             vertexCount += 1;
-            string newHeader = std::to_string(vertexCount) + ' ' + std::to_string(edgeCount);
+            string newHeader = std::to_string(vertexCount) + ' ' + std::to_string(edgeCountForMetis);
             //string command = "sed -i \"1s/.*/" + newHeader +"/\" /tmp/grf";
             string command = "sed -i \"1s/.*/" + newHeader + "/\" " + this->outputFilePath + "/grf";
             char *newHeaderChar = new char[command.length() + 1];
@@ -265,13 +271,14 @@ std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis()
                     counter++;
                 }
             }
-            partitioner_logger.log("Done partitioning with gpmetis", "info");
+            float time =  float( clock () - begin ) /  CLOCKS_PER_SEC;
+            partitioner_logger.log("Done partitioning with gpmetis in " + to_string(time) + " seconds", "info");
             createPartitionFiles(partIndex);
 
             string sqlStatement =
-                    "UPDATE graph SET vertexcount = '" + std::to_string(this->totalVertexCount) +
+                    "UPDATE graph SET vertexcount = '" + std::to_string(this->vertexCount) +
                     "' ,centralpartitioncount = '" + std::to_string(this->nParts) + "' ,edgecount = '"
-                    + std::to_string(this->totalEdgeCount) + "' WHERE idgraph = '" + std::to_string(this->graphID) +
+                    + std::to_string(this->edgeCount) + "' WHERE idgraph = '" + std::to_string(this->graphID) +
                     "'";
             this->sqlite.runUpdate(sqlStatement);
             this->fullFileList.push_back(this->partitionFileList);
