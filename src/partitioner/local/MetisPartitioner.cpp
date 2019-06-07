@@ -156,6 +156,7 @@ int MetisPartitioner::constructMetisFormat(string graph_type) {
     outputFile << (vertexCount) << ' ' << (edgeCountForMetis) << std::endl;
 
     xadj.push_back(adjacencyIndex);
+
     for (int vertexNum = 0; vertexNum <= largestVertex; vertexNum++) {
         std::vector<int> vertexSet = graphStorageMap[vertexNum];
 
@@ -179,7 +180,6 @@ int MetisPartitioner::constructMetisFormat(string graph_type) {
             continue;
         }
 
-        //TODO :: Check what happens when an edge list of adgr-cust has zero vertex. This increments vertex id by one, but that may not be done to the attributes file
         for (std::vector<int>::const_iterator i = vertexSet.begin(); i != vertexSet.end(); ++i) {
             //To handle zero vertex
             if (zeroflag) {
@@ -209,7 +209,6 @@ int MetisPartitioner::constructMetisFormat(string graph_type) {
 std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis() {
     partitioner_logger.log("Partitioning with gpmetis", "info");
     const clock_t begin = clock();
-
     char buffer[128];
     std::string result = "";
     FILE *headerModify;
@@ -259,7 +258,10 @@ std::vector<std::map<int,std::string>> MetisPartitioner::partitioneWithGPMetis()
             std::string line;
             string fileName = this->outputFilePath + "/grf.part." + to_string(this->nParts);
             std::ifstream infile(fileName);
-            int counter = 0;
+            int counter = 1;
+            if (zeroflag){
+                counter = 0;
+            }
             std::map<int, int> partIndex;
             while (std::getline(infile, line)) {
                 std::istringstream iss(line);
@@ -309,7 +311,6 @@ void MetisPartitioner::createPartitionFiles(std::map<int, int> partMap) {
 
     for (int threadCount = 0; threadCount < count; threadCount++) {
         threadList[threadCount].join();
-        std::cout << "############JOINED###########" << std::endl;
     }
 
     // Populate the masterEdgeLists with the remaining edges after thread functions
@@ -352,10 +353,11 @@ void MetisPartitioner::createPartitionFiles(std::map<int, int> partMap) {
 
     for (int threadCount = 0; threadCount < count; threadCount++) {
         threads[threadCount].join();
-        std::cout << "############JOINED###########" << std::endl;
     }
+
     partitioner_logger.log("writing to files completed", "info");
     float t2 = float( clock () - begin_time2 ) /  CLOCKS_PER_SEC ;
+
     string sqlStatement2 =
             "UPDATE graph SET time_to_populate = '" + to_string(t1) + "' ,time_to_write = '" +
             to_string(t2) + "' WHERE idgraph = '" + to_string(graphID) + "'";
@@ -474,6 +476,7 @@ void MetisPartitioner::loadContentData(string inputAttributeFilePath, string gra
 void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
     int partitionVertexCount = 0;
     int partitionEdgeCount = 0;
+    int masterPartEdgeCount = 0;
 
     std::map<int, std::vector<int>>::iterator edgeMapIterator;
     std::map<int, std::vector<int>> partEdgesSet;
@@ -481,7 +484,7 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
     std::map<int, std::map<int, std::vector<int>>> commonMasterEdgeSet;
 
     for (edgeMapIterator = graphEdgeMap.begin(); edgeMapIterator!= graphEdgeMap.end();++edgeMapIterator) {
-//        partitionVertexCount++;
+
         int startVertex = edgeMapIterator->first;
         int startVertexPart = partMap[startVertex];
         if (startVertexPart == part) {
@@ -499,6 +502,7 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
                     partitionEdgeCount++;
                     localGraphVertexVector.push_back(endVertex);
                 } else {
+                    masterPartEdgeCount++;
                     /*This edge's two vertices belong to two different parts.
                     * Therefore the edge is added to both partMasterEdgeSets
                     * This adds the edge to the masterGraphStorageMap with key being the part of vertex 1
@@ -526,9 +530,9 @@ void MetisPartitioner::populatePartMaps(std::map<int, int> partMap, int part) {
     commonCentralStoreEdgeMap[part] = commonMasterEdgeSet;
 
     string sqlStatement =
-            "INSERT INTO partition (idpartition,graph_idgraph,vertexcount,edgecount) VALUES(\"" +
+            "INSERT INTO partition (idpartition,graph_idgraph,vertexcount,edgecount,master_edgecount) VALUES(\"" +
             std::to_string(part) + "\", \"" + std::to_string(this->graphID) +
-            "\", \"" + std::to_string(partitionVertexCount) + "\",\"" + std::to_string(partitionEdgeCount) + "\")";
+            "\", \"" + std::to_string(partitionVertexCount) + "\",\"" + std::to_string(partitionEdgeCount) + "\",\"" + std::to_string(masterPartEdgeCount) + "\")";
     this->sqlite.runUpdate(sqlStatement);
 
 }
@@ -709,8 +713,10 @@ void MetisPartitioner::writePartitionFiles(int part) {
         std::ofstream localFile(outputFilePart);
 
         if (localFile.is_open()) {
-            for (int vertex = 0; vertex < vertexCount; vertex++) {
-                std::vector<int> destinationSet = partEdgeMap[vertex];
+            for (auto it = partEdgeMap.begin(); it != partEdgeMap.end(); ++it) {
+                int vertex = it->first;
+                std::vector<int> destinationSet = it->second;
+
                 if (!destinationSet.empty()) {
                     for (std::vector<int>::iterator itr = destinationSet.begin(); itr != destinationSet.end(); ++itr) {
                         string edge;
@@ -741,8 +747,10 @@ void MetisPartitioner::writePartitionFiles(int part) {
         std::ofstream masterFile(outputFilePartMaster);
 
         if (masterFile.is_open()) {
-            for (int vertex = 0; vertex < vertexCount; vertex++) {
-                std::vector<int> destinationSet = partMasterEdgeMap[vertex];
+            for (auto it = partMasterEdgeMap.begin(); it != partMasterEdgeMap.end(); ++it) {
+                int vertex = it->first;
+                std::vector<int> destinationSet = it->second;
+
                 if (!destinationSet.empty()) {
                     for (std::vector<int>::iterator itr = destinationSet.begin();
                          itr != destinationSet.end(); ++itr) {
