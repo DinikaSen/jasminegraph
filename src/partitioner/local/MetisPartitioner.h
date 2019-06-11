@@ -50,7 +50,7 @@ public:
     //reformat the vertex list by mapping vertex values to new sequntial IDs
     std::string reformatDataSet(string inputFilePath, int graphID);
 
-    void loadContentData(string inputAttributeFilePath, string graphType);
+    void loadContentData(string inputAttributeFilePath, string graphAttributeType);
 
     MetisPartitioner(SQLiteDBInterface *);
 
@@ -69,7 +69,7 @@ private:
     Utils utils;
     string graphType;
     int smallestVertex = std::numeric_limits<int>::max();
-    string graphTypeInt;
+    string graphAttributeType;
 
     std::map<int,std::string> partitionFileList;
     std::map<int,std::string> centralStoreFileList;
@@ -89,7 +89,7 @@ private:
     std::map<long, string[7]> articlesMap;
     std::map<int, int> vertexToIDMap;
     std::map<int, int> idToVertexMap;
-    std::map<long, std::vector<string>> attributeDataMap;
+    std::map<int, std::string> attributeDataMap;
 
 
     void createPartitionFiles(std::map<int,int> partMap);
@@ -97,6 +97,20 @@ private:
     void populatePartMaps(std::map<int,int> partMap, int part);
 
     void writePartitionFiles(int part);
+
+    void writeMasterFiles(int part);
+
+    void writeSerializedMasterFiles(int part);
+
+    void writeSerializedPartitionFiles(int part);
+
+    void writeRDFAttributeFilesForPartitions(int part);
+
+    void writeRDFAttributeFilesForMasterParts(int part);
+
+    void writeTextAttributeFilesForPartitions(int part);
+
+    void writeTextAttributeFilesForMasterParts(int part);
 };
 
 
